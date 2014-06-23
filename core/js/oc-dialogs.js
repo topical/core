@@ -19,10 +19,9 @@
  *
  */
 
-/* global OC, t, alert, $ */
-
 /**
  * this class to ease the usage of jquery dialogs
+ * @lends OC.dialogs
  */
 var OCdialogs = {
 	// dialog button types

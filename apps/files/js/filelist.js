@@ -1751,6 +1751,45 @@
 				self.updateStorageStatistics();
 			});
 
+		},
+
+		/**
+		 * Scroll to a specified file
+		 * @param filename string
+		 */
+		scrollToFile: function(filename) {
+			var $fileRow = this.findFileEl(filename);
+
+			while($fileRow.length === 0) { // Checking element existence
+				this._nextPage(false);
+				$fileRow = this.findFileEl(filename);
+			}
+
+			var currentOffset = this.$container.scrollTop();
+			var additionalOffset = this.$el.find("#controls").height()+this.$el.find("#controls").offset().top;
+
+			this.$container.animate({
+				// Scrolling to the top of the new element
+				scrollTop: currentOffset + $fileRow.offset().top - additionalOffset
+			}, {
+				duration: 500
+			});
+		},
+
+		/**
+		 * Make some files briefly blink
+		 * @param files array of filenames
+		 */
+		highlightUploadedFiles: function(files) {
+			for(var i=0; i<files.length; i++)
+			{
+				var $fileRow = this.findFileEl(files[i].name);
+
+				if($fileRow.length !== 0) { // Checking element existence
+					$fileRow.animate({backgroundColor: "#FFFF70"}, 700);
+					$fileRow.animate({backgroundColor: "#FFFFFF"}, 700);
+				}
+			}
 		}
 	};
 

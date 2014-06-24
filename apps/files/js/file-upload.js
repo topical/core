@@ -416,31 +416,9 @@ OC.Upload = {
 					} else { // Successful upload
 						// Checking that the uploaded file is the last one
 						if (data.files[0] === data.originalFiles[data.originalFiles.length - 1] && result[0].directory === "/") {
-							var elem = FileList.findFileEl(data.files[0]["name"]);
-							var elemOffset;
-
-							// Makes sure the new element is in the FileList
-							while((elemOffset = elem.offset()) === undefined) {
-								FileList._nextPage(true);
-								elem = FileList.findFileEl(data.files[0]["name"]);
-							}
-
-							var currentOffset = $('#app-content').scrollTop(); // Vertical offset
-							var additionalOffset = $('#controls').height() + $("#header").height();
-
-							// Actual animation
-							$('#app-content').animate({
-								// Scrolling to the top of the new element
-								scrollTop: currentOffset + elemOffset.top - additionalOffset
-							}, {
-								duration: 500,
-								complete: function() {
-									// Light yellow blink
-									elem.animate({backgroundColor: "#FFFF70"}, 700);
-									elem.animate({backgroundColor: "#FFFFFF"}, 700);
-								}
-							});
-
+							// Scroll to the last uploaded file and highlight all of them
+							FileList.scrollToFile(data.files[0]["name"]);
+							FileList.highlightUploadedFiles(data.originalFiles);
 						}
 					}
 				},

@@ -675,7 +675,7 @@ OC.Upload = {
 								}
 							});
 							eventSource.listen('success', function(data) {
-							  var file = data;
+								var file = data;
 								$('#uploadprogressbar').fadeOut();
 
 								FileList.add(file, {hidden: hidden, animate: true});

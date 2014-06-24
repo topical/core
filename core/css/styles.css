@@ -263,6 +263,10 @@ input[type="submit"].enabled {
 	left: 250px;
 	padding-right: 250px;
 }
+.viewer-mode #app-navigation+#app-content #controls {
+	left: 0;
+	padding-right: 0;
+}
 
 #controls .button,
 #controls button,
@@ -618,6 +622,12 @@ label.infield {
 	cursor: pointer;
 }
 
+/* fixes for update page TODO should be fixed some time in a proper way */
+/* this is just for an error while updating the ownCloud instance */
+#body-login .updateProgress .error {
+	margin-top: 10px;
+	margin-bottom: 10px;
+}
 
 /* Alternative Logins */
 #alternative-logins legend { margin-bottom:10px; }

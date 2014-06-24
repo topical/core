@@ -485,7 +485,9 @@ describe('OCA.Files.FileList tests', function() {
 			var $input, request;
 
 			for (var i = 0; i < testFiles.length; i++) {
-				fileList.add(testFiles[i], {silent: true});
+				var file = testFiles[i];
+				file.path = '/some/subdir';
+				fileList.add(file, {silent: true});
 			}
 
 			// trigger rename prompt
@@ -498,7 +500,7 @@ describe('OCA.Files.FileList tests', function() {
 			expect(fakeServer.requests.length).toEqual(1);
 			request = fakeServer.requests[0];
 			expect(request.url.substr(0, request.url.indexOf('?'))).toEqual(OC.webroot + '/index.php/apps/files/ajax/rename.php');
-			expect(OC.parseQueryString(request.url)).toEqual({'dir': '/subdir', newname: 'Tu_after_three.txt', file: 'One.txt'});
+			expect(OC.parseQueryString(request.url)).toEqual({'dir': '/some/subdir', newname: 'Tu_after_three.txt', file: 'One.txt'});
 		}
 		it('Inserts renamed file entry at correct position if rename ajax call suceeded', function() {
 			doRename();
@@ -590,6 +592,47 @@ describe('OCA.Files.FileList tests', function() {
 			// file actions are hidden
 			expect($tr.find('.action').hasClass('hidden')).toEqual(true);
 			expect($tr.find('.fileactions').hasClass('hidden')).toEqual(true);
+
+			// input and form are gone
+			expect(fileList.$fileList.find('input.filename').length).toEqual(0);
+			expect(fileList.$fileList.find('form').length).toEqual(0);
+		});
+		it('Validates the file name', function() {
+			var $input, $tr;
+
+			for (var i = 0; i < testFiles.length; i++) {
+				fileList.add(testFiles[i], {silent: true});
+			}
+
+			// trigger rename prompt
+			fileList.rename('One.txt');
+			$input = fileList.$fileList.find('input.filename');
+			$input.val('Two.jpg');
+
+			// simulate key to trigger validation
+			$input.trigger(new $.Event('keyup', {keyCode: 97}));
+
+			// input is still there with error
+			expect(fileList.$fileList.find('input.filename').length).toEqual(1);
+			expect(fileList.$fileList.find('input.filename').hasClass('error')).toEqual(true);
+
+			// trigger submit does not send server request
+			$input.closest('form').trigger('submit');
+			expect(fakeServer.requests.length).toEqual(0);
+
+			// simulate escape key
+			$input.trigger(new $.Event('keyup', {keyCode: 27}));
+
+			// element is added back with the correct name
+			$tr = fileList.findFileEl('One.txt');
+			expect($tr.length).toEqual(1);
+			expect($tr.find('a .nametext').text().trim()).toEqual('One.txt');
+			expect($tr.find('a.name').is(':visible')).toEqual(true);
+
+			$tr = fileList.findFileEl('Two.jpg');
+			expect($tr.length).toEqual(1);
+			expect($tr.find('a .nametext').text().trim()).toEqual('Two.jpg');
+			expect($tr.find('a.name').is(':visible')).toEqual(true);
 
 			// input and form are gone
 			expect(fileList.$fileList.find('input.filename').length).toEqual(0);
@@ -1368,7 +1411,8 @@ describe('OCA.Files.FileList tests', function() {
 						"Content-Type": "application/json"
 					},
 					JSON.stringify(data)
-			]);
+				]
+			);
 			fileList.changeDirectory('/');
 			fakeServer.respond();
 			expect($('.select-all').prop('checked')).toEqual(false);
@@ -1385,6 +1429,37 @@ describe('OCA.Files.FileList tests', function() {
 			selectedFiles = _.pluck(fileList.getSelectedFiles(), 'name');
 
 			expect(selectedFiles.length).toEqual(41);
+		});
+		describe('clearing the selection', function() {
+			it('clears selected files selected individually calling setFiles()', function() {
+				var selectedFiles;
+
+				fileList.setFiles(generateFiles(0, 41));
+				fileList.$fileList.find('tr:eq(5) input:checkbox:first').click();
+				fileList.$fileList.find('tr:eq(7) input:checkbox:first').click();
+
+				selectedFiles = _.pluck(fileList.getSelectedFiles(), 'name');
+				expect(selectedFiles.length).toEqual(2);
+
+				fileList.setFiles(generateFiles(0, 2));
+
+				selectedFiles = _.pluck(fileList.getSelectedFiles(), 'name');
+				expect(selectedFiles.length).toEqual(0);
+			});
+			it('clears selected files selected with select all when calling setFiles()', function() {
+				var selectedFiles;
+
+				fileList.setFiles(generateFiles(0, 41));
+				$('.select-all').click();
+
+				selectedFiles = _.pluck(fileList.getSelectedFiles(), 'name');
+				expect(selectedFiles.length).toEqual(42);
+
+				fileList.setFiles(generateFiles(0, 2));
+
+				selectedFiles = _.pluck(fileList.getSelectedFiles(), 'name');
+				expect(selectedFiles.length).toEqual(0);
+			});
 		});
 		describe('Selection overlay', function() {
 			it('show delete action according to directory permissions', function() {
@@ -1730,20 +1805,6 @@ describe('OCA.Files.FileList tests', function() {
 				return ev;
 			}
 
-			/**
-			 * Convert form data to a flat list
-			 * 
-			 * @param formData form data array as used by jquery.upload
-			 * @return map based on the array's key values
-			 */
-			function decodeFormData(data) {
-				var map = {};
-				_.each(data.formData(), function(entry) {
-					map[entry.name] = entry.value;
-				});
-				return map;
-			}
-
 			beforeEach(function() {
 				// simulate data structure from jquery.upload
 				uploadData = {
@@ -1803,11 +1864,7 @@ describe('OCA.Files.FileList tests', function() {
 				ev = dropOn(fileList.findFileEl('somedir').find('td:eq(2)'), uploadData);
 
 				expect(ev.result).not.toEqual(false);
-				expect(uploadData.formData).toBeDefined();
-				formData = decodeFormData(uploadData);
-				expect(formData.dir).toEqual('/subdir/somedir');
-				expect(formData.file_directory).toEqual('fileToUpload.txt');
-				expect(formData.requesttoken).toBeDefined();
+				expect(uploadData.targetDir).toEqual('/subdir/somedir');
 			});
 			it('drop on a breadcrumb inside the table triggers upload to target folder', function() {
 				var ev, formData;
@@ -1815,11 +1872,7 @@ describe('OCA.Files.FileList tests', function() {
 				ev = dropOn(fileList.$el.find('.crumb:eq(2)'), uploadData);
 
 				expect(ev.result).not.toEqual(false);
-				expect(uploadData.formData).toBeDefined();
-				formData = decodeFormData(uploadData);
-				expect(formData.dir).toEqual('/a/b');
-				expect(formData.file_directory).toEqual('fileToUpload.txt');
-				expect(formData.requesttoken).toBeDefined();
+				expect(uploadData.targetDir).toEqual('/a/b');
 			});
 		});
 	});

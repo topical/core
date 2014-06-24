@@ -133,6 +133,8 @@
 		display: function (parent, triggerEvent, fileList) {
 			if (!fileList) {
 				console.warn('FileActions.display() MUST be called with a OCA.Files.FileList instance');
+				// using default list instead, which could be wrong
+				fileList = OCA.Files.App.fileList;
 			}
 			this.currentFile = parent;
 			var self = this;
@@ -162,7 +164,7 @@
 
 				event.data.actionFunc(file, {
 					$file: $tr,
-					fileList: fileList || OCA.Files.App.fileList,
+					fileList: fileList,
 					fileActions: self,
 					dir: $tr.attr('data-path') || fileList.getCurrentDirectory()
 				});
@@ -255,7 +257,7 @@
 			this.register('all', 'Delete', OC.PERMISSION_DELETE, function () {
 				return OC.imagePath('core', 'actions/delete');
 			}, function (filename, context) {
-				context.fileList.do_delete(filename);
+				context.fileList.do_delete(filename, context.dir);
 				$('.tipsy').remove();
 			});
 

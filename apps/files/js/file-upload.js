@@ -415,7 +415,8 @@ OC.Upload = {
 						fu._trigger('fail', e, data);
 					} else { // Successful upload
 						// Checking that the uploaded file is the last one
-						if (data.files[0] === data.originalFiles[data.originalFiles.length - 1] && result[0].directory === "/") {
+						if (data.files[0] === data.originalFiles[data.originalFiles.length - 1]
+							&& result[0].directory === "/") {
 							// Scroll to the last uploaded file and highlight all of them
 							FileList.scrollToFile(data.files[0]["name"]);
 							FileList.highlightUploadedFiles(data.originalFiles);

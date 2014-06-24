@@ -1,4 +1,7 @@
 (function(){
+	if (!OCA.External) {
+		OCA.External = {};
+	}
 
 	function updateStatus(statusEl, result){
 		statusEl.removeClass('success error loading-small');
@@ -160,8 +163,48 @@
 		}
 	};
 
+	function Select2Helper() {};
+
+	Select2Helper.prototype.getDeferredForInit = function(results, callback) {
+		var def = new $.Deferred();
+		def.then(function() {
+			if (results.length > 0) {
+				callback(results);
+			} else {
+				callback([{name:'all', displayname:t('files_external', 'All Users')}]);
+			}
+		});
+
+		return def;
+	};
+
+	Select2Helper.prototype.initSelectedUsers = function(userIDs, callback) {
+		var results = [];
+
+		$.ajax(OC.filePath('files_external','ajax','batchGetDisplayNames.php'), {
+			data: {
+				uids: userIDs
+			},
+			dataType: "json"
+		}).done(function(data) {
+			if (data.status === "success") {
+				if (data.data.length > 0) {
+					for(var key in data.data) {
+						results.push(data.data[key]);
+					}
+				}
+				var def = OCA.External.select2Helper.getDeferredForInit(results, callback);
+				def.resolve();
+			} else {
+				//FIXME add error handling
+			}
+		});
+	};
+
+	OCA.External.select2Helper = new Select2Helper();
+
 	$(document).ready(function() {
-		//initialize hidden input field with list of users and groups
+		//initialize hidden input field for each mount with list of selected users and groups
 		$('#externalStorage').find('tr:not(#addMountPoint)').each(function(i,tr) {
 			var applicable = $(tr).find('.applicable');
 			if (applicable.length > 0) {
@@ -229,8 +272,8 @@
 			initSelection: function(element, callback) {
 
 				var promises = [];
-
 				var results = [];
+				var applicableUsers = [];
 
 				$(element.val().split(",")).each(function (i,userId) {
 					var def = new $.Deferred();
@@ -242,25 +285,13 @@
 						results.push({name:userId, displayname:userId.substr(0, pos)+' '+t('files_external', '(group)')});
 						def.resolve();
 					} else {
-						$.ajax(OC.generateUrl('/settings/ajax/userlist'), {
-							data: {
-								pattern: userId
-							},
-							dataType: "json"
-						}).done(function(data) {
-							if (data.status === "success") {
-								if (data.data.length > 0) {
-									var user = data.data[0];
-									user.type = 'user';
-									results.push(user);
-								}
-								def.resolve();
-							} else {
-								//FIXME add error handling
-							}
-						});
+						//collect users before we fetch additional data, before adding them
+						applicableUsers.push(userId);
 					}
 				});
+
+				OCA.External.select2Helper.initSelectedUsers(applicableUsers, callback);
+
 				$.when.apply(undefined, promises).then(function(){
 					if (results.length > 0) {
 						callback(results);

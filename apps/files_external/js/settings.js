@@ -225,7 +225,7 @@
 			multiple: true,
 			//minimumInputLength: 2,
 			ajax: {
-				url: OC.generateUrl('/settings/ajax/userlist'),
+				url: OC.filePath('files_external','ajax','getUserAndGroupList.php'),
 				dataType: 'json',
 				quietMillis: 100,
 				data: function (term, page) { // page is the one-based page number tracked by Select2
@@ -240,29 +240,37 @@
 						var results = [];
 						results.push({name:'all', displayname:t('files_external', 'All Users')});
 
+						var users  = [];
 						var groups = [];
-						var userObjects = [];
-						$.each(data.data, function(i,e){
-							if (e.groups && groups.indexOf(e.groups) < 0) {
-								groups.push(e.groups);
+						var groupIndicator = ' (' + t('files_external', 'group') + ')';
+
+						$.each(data.data.users, function(uid, displayname) {
+							user = {
+								name: uid,
+								displayname: displayname,
+								type: 'user'
 							}
-							e.type = 'user';
-							userObjects.push(e);
-						});
-						var groupObjects = [];
-						$.each(groups, function(i,e){
-							groupObjects.push({name:e+'(group)', displayname:e, type:'group'});
+							users.push(user);
 						});
 
-						if (groupObjects.length > 0) {
-							results.push({displayname:t('files_external', 'Groups'), children:groupObjects});
+						$.each(data.data.groups, function(i, name) {
+							group = {
+								name: name,
+								displayname: name + groupIndicator,
+								type: 'group'
+							}
+							groups.push(group);
+						});
+
+						if(users.length > 0) {
+							results.push({displayname:t('files_external', 'Users'), children: users});
 						}
 
-						if (userObjects.length > 0) {
-							results.push({displayname:t('files_external', 'Users'), children:userObjects});
+						if (groups.length > 0) {
+							results.push({displayname:t('files_external', 'Groups'), children: groups});
 						}
 
-						var more = data.data.length >= userListLimit;
+						var more = users.length >= userListLimit || groups.length >= userListLimit;
 						return {results: results, more: more};
 					} else {
 						//FIXME add error handling

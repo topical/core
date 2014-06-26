@@ -58,6 +58,10 @@
 					var groups = [];
 					var users = [];
 					$.each(multiselect, function(index, value) {
+						if(typeof value !== 'string') {
+							console.trace();
+							return;
+						}
 						var pos = value.indexOf('(group)');
 						if (pos != -1) {
 							var mountType = 'group';
@@ -163,7 +167,9 @@
 		}
 	};
 
-	function Select2Helper() {};
+	function Select2Helper() {
+		this.groupOffsets = {};
+	};
 
 	Select2Helper.prototype.getDeferredForInit = function(results, callback) {
 		var def = new $.Deferred();
@@ -201,6 +207,17 @@
 		});
 	};
 
+	Select2Helper.prototype.groupOffset = function(term, offset) {
+		if(!offset) {
+			if(typeof this.groupOffsets['term'] !== undefined) {
+				return this.groupOffsets['term'];
+			} else {
+				return false;
+			}
+		}
+		this.groupOffsets[term] = offset;
+	};
+
 	OCA.External.select2Helper = new Select2Helper();
 
 	$(document).ready(function() {
@@ -232,7 +249,8 @@
 					return {
 						pattern: term, //search term
 						limit: userListLimit, // page size
-						offset: userListLimit*(page-1) // page number starts with 0
+						offset: userListLimit*(page-1), // page number starts with 0
+						groupOffset: OCA.External.select2Helper.groupOffset(term)
 					};
 				},
 				results: function (data, page) {
@@ -262,6 +280,10 @@
 							groups.push(group);
 						});
 
+						if(groups.length > 0 && !OCA.External.select2Helper.groupOffset(data.data.query.term)) {
+							OCA.External.select2Helper.groupOffset(data.data.term, data.data.query.offset);
+						}
+
 						if(users.length > 0) {
 							results.push({displayname:t('files_external', 'Users'), children: users});
 						}
@@ -270,7 +292,7 @@
 							results.push({displayname:t('files_external', 'Groups'), children: groups});
 						}
 
-						var more = users.length >= userListLimit || groups.length >= userListLimit;
+						var more = (users.length > 0 || groups.length >= userListLimit);
 						return {results: results, more: more};
 					} else {
 						//FIXME add error handling

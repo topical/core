@@ -28,6 +28,11 @@ if (isset($_GET['offset'])) {
 } else {
 	$offset = 0;
 }
+$searchGroups = false;
+if (isset($_GET['groupOffset'])) {
+	$offset -= $_GET['groupOffset'];
+	$searchGroups = true;
+}
 if (isset($_GET['limit'])) {
 	$limit = $_GET['limit'];
 } else {
@@ -39,9 +44,19 @@ if (isset($_GET['pattern']) && !empty($_GET['pattern'])) {
 	$pattern = '';
 }
 
-$users  = \OCP\User::getDisplayNames($pattern, $limit, $offset);
-$groups = OC_Group::getGroups($pattern, $limit, $offset);
+$users = $groups = array();
+$query  = array('term' => $pattern, 'offset' => $offset);
 
-$result = array('users' => $users, 'groups' => $groups);
+if(!$searchGroups) {
+	$users  = \OCP\User::getDisplayNames($pattern, $limit, $offset);
+}
+if($searchGroups || count($users) === 0) {
+	if(!$searchGroups) {
+		$offset = 0;
+	}
+	$groups = OC_Group::getGroups($pattern, $limit, $offset);
+}
+
+$result = array('users' => $users, 'groups' => $groups, 'query' => $query);
 
 \OCP\JSON::success(array('data' => $result));

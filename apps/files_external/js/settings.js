@@ -433,7 +433,7 @@
 			var isPersonal = true;
 			if ($('#externalStorage').data('admin') === true) {
 				isPersonal = false;
-				var multiselect = $(tr).find('.chzn-select').val();
+				var multiselect = $(tr).find('.applicableUsers').select2('val');
 				if (multiselect != null) {
 					$.each(multiselect, function(index, value) {
 						var pos = value.indexOf('(group)');

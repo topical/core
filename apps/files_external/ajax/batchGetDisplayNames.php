@@ -27,6 +27,7 @@ if (isset($_GET['uids']) && !empty($_GET['uids'])) {
 	$uids = $_GET['uids'];
 } else {
 	\OCP\JSON::success();
+	exit();
 }
 
 $l=OC_L10N::get('files_external');

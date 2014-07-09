@@ -3,6 +3,8 @@
 if (!isset($_)) { //also provide standalone error page
 	require_once __DIR__ . '/../../../lib/base.php';
 
+	OC_App::loadApp('files_encryption');
+
 	$l = OC_L10N::get('files_encryption');
 
 	if (isset($_GET['errorCode'])) {

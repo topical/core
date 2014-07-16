@@ -47,10 +47,10 @@ class Session implements IUserSession, Emitter {
 	protected $activeUser;
 
 	/**
-	 * @param \OC\User\Manager $manager
-	 * @param \OC\Session\Session $session
+	 * @param \OCP\IUserManager $manager
+	 * @param \OCP\ISession $session
 	 */
-	public function __construct($manager, $session) {
+	public function __construct(\OCP\IUserManager $manager, \OCP\ISession $session) {
 		$this->manager = $manager;
 		$this->session = $session;
 	}
@@ -80,6 +80,39 @@ class Session implements IUserSession, Emitter {
 	 */
 	public function getManager() {
 		return $this->manager;
+	}
+
+	/**
+	 * get the session object
+	 *
+	 * @return \OCP\ISession
+	 */
+	public function getSession() {
+		// fetch a the deprecated \OC::$session if it changed
+		if (isset(\OC::$session) && \OC::$session !== $this->session) {
+			$this->setSession(\OC::$session);
+		}
+		return $this->session;
+	}
+
+	/**
+	 * set the session object
+	 *
+	 * @param \OCP\ISession $session
+	 */
+	public function setSession(\OCP\ISession $session) {
+		if ($this->session instanceof \OCP\ISession) {
+			$this->session->close();
+		}
+		$this->session = $session;
+
+		// maintain deprecated \OC::$session
+		if (\OC::$session !== $this->session) {
+			if (\OC::$session instanceof \OCP\ISession) {
+				\OC::$session->close();
+			}
+			\OC::$session = $session;
+		}
 	}
 
 	/**

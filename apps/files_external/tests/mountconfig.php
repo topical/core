@@ -20,7 +20,7 @@
  *
  */
 
-require_once __DIR__ . '/../../../lib/base.php';
+require_once __DIR__ . '/../../../tests/base.php';
 
 class Test_Mount_Config_Dummy_Storage {
 	public function test() {

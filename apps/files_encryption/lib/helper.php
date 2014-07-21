@@ -475,5 +475,25 @@ class Helper {
 
 		return false;
 	}
+
+	/**
+	 * read the cipher used for encryption from the config.php
+	 *
+	 * @return string
+	 */
+	public static function getCipher() {
+
+		$cipher = \OCP\Config::getSystemValue('cipher', 'AES-256-CFB');
+
+		if ($cipher !== 'AES-256-CFB' && $cipher !== 'AES-128-CFB') {
+			\OCP\Util::writeLog('files_encryption',
+					'wrong cipher defined in config.php, only AES-128-CFB and AES-256-CFB is supported. Fall back to AES-256',
+					\OCP\Util::WARN);
+
+			$cipher = 'AES-256-CFB';
+		}
+
+		return $cipher;
+	}
 }
 

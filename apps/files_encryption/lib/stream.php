@@ -2,9 +2,10 @@
 /**
  * ownCloud
  *
- * @author Robin Appelman
- * @copyright 2012 Sam Tuke <samtuke@owncloud.com>, 2011 Robin Appelman
- * <icewind1991@gmail.com>
+ * @author Bjoern Schiessle, Robin Appelman
+ * @copyright 2014 Bjoern Schiessle <schiessle@owncloud.com>
+ *            2012 Sam Tuke <samtuke@owncloud.com>,
+ *            2011 Robin Appelman <icewind1991@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -49,9 +50,15 @@ namespace OCA\Encryption;
  * encryption proxies are used and keyfiles deleted.
  */
 class Stream {
+
+	const BLOCKSIZE = 8192; // block size will always be 8192 https://bugs.php.net/bug.php?id=21641
+	const HEADERSTART = 'HBEGIN';
+	const HEADEREND = 'HEND';
+	const PADDING_CHAR = '-';
+
+
 	private $plainKey;
 	private $encKeyfiles;
-
 	private $rawPath; // The raw path relative to the data dir
 	private $relPath; // rel path to users file dir
 	private $userId;
@@ -66,6 +73,8 @@ class Stream {
 	private $newFile; // helper var, we only need to write the keyfile for new files
 	private $isLocalTmpFile = false; // do we operate on a local tmp file
 	private $localTmpFile; // path of local tmp file
+	private $headerWritten = false;
+	private $cipher = 'AES-128-CFB';
 
 	/**
 	 * @var \OC\Files\View
@@ -204,24 +213,25 @@ class Stream {
 	/**
 	 * @param int $count
 	 * @return bool|string
-	 * @throws \Exception
+	 * @throws \OCA\Encryption\Exceptions\EncryptionException
 	 */
 	public function stream_read($count) {
 
 		$this->writeCache = '';
 
-		if ($count !== 8192) {
-
-			// $count will always be 8192 https://bugs.php.net/bug.php?id=21641
-			// This makes this function a lot simpler, but will break this class if the above 'bug' gets 'fixed'
+		if ($count !== self::BLOCKSIZE) {
 			\OCP\Util::writeLog('Encryption library', 'PHP "bug" 21641 no longer holds, decryption system requires refactoring', \OCP\Util::FATAL);
-
-			die();
-
+			throw new \OCA\Encryption\Exceptions\EncryptionException('expected a blog size of 8192 byte', 20);
 		}
 
 		// Get the data from the file handle
 		$data = fread($this->handle, $count);
+
+		if ($this->isHeader($data)) {
+			$header = $this->readHeader($data);
+			$this->getCipher($header);
+			$data = fread($this->handle, $count);
+		}
 
 		$result = null;
 
@@ -236,7 +246,7 @@ class Stream {
 			} else {
 
 				// Decrypt data
-				$result = Crypt::symmetricDecryptFileContent($data, $this->plainKey);
+				$result = Crypt::symmetricDecryptFileContent($data, $this->plainKey, $this->cipher);
 			}
 
 		}
@@ -318,6 +328,98 @@ class Stream {
 	}
 
 	/**
+	 * write header at beginning of encrypted file
+	 *
+	 * @throws Exceptions\EncryptionException
+	 */
+	private function writeHeader() {
+		$cipher = Helper::getCipher();
+		$header = self::HEADERSTART . ':cipher:' . $cipher . ':' . self::HEADEREND;
+
+		if (strlen($header) > self::BLOCKSIZE) {
+			throw new Exceptions\EncryptionException('max header size exceeded', 30);
+		}
+
+		$paddedHeader = str_pad($header, self::BLOCKSIZE, self::PADDING_CHAR, STR_PAD_RIGHT);
+
+		fwrite($this->handle, $paddedHeader);
+		$this->headerWritten = true;
+	}
+
+	private function removePadding($data) {
+		return rtrim($data, self::PADDING_CHAR);
+	}
+
+	/**
+	 * check if the current data block contains the encryption header
+	 *
+	 * @param string $data
+	 * @return boolean
+	 * @throws \OCA\Encryption\Exceptions\EncryptionException
+	 */
+	private function isHeader($data) {
+		$start = substr($data, 0, strlen(self::HEADERSTART));
+
+		if ($start === self::HEADERSTART) {
+			//remove padding
+			$data = $this->removePadding($data);
+			// verify if header is terminated correctly
+			$end  = substr($data, strlen($data) - strlen(self::HEADEREND));
+			if ($end !== self::HEADEREND) {
+				throw new \OCA\Encryption\Exceptions\EncryptionException('Header not terminated correctly', 10);
+			}
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * get chiper from header and update the class property
+	 *
+	 * @param array $header
+	 * @throws \OCA\Encryption\Exceptions\EncryptionException
+	 */
+	private function getCipher($header) {
+		$cipher = isset($header['cipher']) ? $header['cipher'] : 'AES-128-CFB';
+
+		if ($cipher !== 'AES-256-CFB' && $cipher !== 'AES-128-CFB') {
+
+			throw new \OCA\Encryption\Exceptions\EncryptionException('file header broken, no supported cipher defined', 40);
+		}
+
+		$this->cipher = $cipher;
+	}
+
+	/**
+	 * read header into array
+	 *
+	 * @param string $data
+	 * @return array
+	 */
+	private function readHeader($data) {
+
+		$result = array();
+
+		if (substr($data, 0, strlen(self::HEADERSTART)) === self::HEADERSTART) {
+			$data = $this->removePadding($data);
+			// +1 to not start with an ':' which would result in empty element at the beginning
+			$exploded = explode(':', substr($data, strlen(self::HEADERSTART)+1));
+
+			$element = array_shift($exploded);
+			while ($element !== self::HEADEREND) {
+
+				$result[$element] = array_shift($exploded);
+
+				$element = array_shift($exploded);
+
+			}
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Handle plain data from the stream, and write it in 8192 byte blocks
 	 * @param string $data data to be written to disk
 	 * @note the data will be written to the path stored in the stream handle, set in stream_open()
@@ -332,6 +434,10 @@ class Stream {
 		if ($this->privateKey === false) {
 			$this->size = 0;
 			return strlen($data);
+		}
+
+		if ($this->headerWritten === false) {
+			$this->writeHeader();
 		}
 
 		// Disable the file proxies so that encryption is not

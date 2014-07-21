@@ -181,11 +181,14 @@ class Crypt {
 	 * @param string $plainContent
 	 * @param string $iv
 	 * @param string $passphrase
+	 * @param string $cipher cipher used for encryption, currently we support aes128 and aes256
 	 * @return string encrypted file content
 	 */
 	private static function encrypt($plainContent, $iv, $passphrase = '') {
 
-		if ($encryptedContent = openssl_encrypt($plainContent, 'AES-128-CFB', $passphrase, false, $iv)) {
+		$cipher = Helper::getCipher();
+
+		if ($encryptedContent = openssl_encrypt($plainContent, $cipher, $passphrase, false, $iv)) {
 			return $encryptedContent;
 		} else {
 			\OCP\Util::writeLog('Encryption library', 'Encryption (symmetric) of content failed', \OCP\Util::ERROR);
@@ -201,12 +204,13 @@ class Crypt {
 	 * @param string $encryptedContent
 	 * @param string $iv
 	 * @param string $passphrase
+	 * @param string $cipher cipher user for decryption, currently we support aes128 and aes256
 	 * @throws \Exception
 	 * @return string decrypted file content
 	 */
-	private static function decrypt($encryptedContent, $iv, $passphrase) {
+	private static function decrypt($encryptedContent, $iv, $passphrase, $cipher = 'AES-128-CFB') {
 
-		if ($plainContent = openssl_decrypt($encryptedContent, 'AES-128-CFB', $passphrase, false, $iv)) {
+		if ($plainContent = openssl_decrypt($encryptedContent, $cipher, $passphrase, false, $iv)) {
 
 			return $plainContent;
 
@@ -293,6 +297,7 @@ class Crypt {
 	 * Symmetrically decrypts keyfile content
 	 * @param string $keyfileContent
 	 * @param string $passphrase
+	 * @param strinf $cipher cipher used for decryption, currently aes128 and aes256 is supported.
 	 * @throws \Exception
 	 * @return string|false
 	 * @internal param string $source
@@ -302,7 +307,7 @@ class Crypt {
 	 *
 	 * This function decrypts a file
 	 */
-	public static function symmetricDecryptFileContent($keyfileContent, $passphrase = '') {
+	public static function symmetricDecryptFileContent($keyfileContent, $passphrase = '', $cipher = 'AES-128-CFB') {
 
 		if (!$keyfileContent) {
 
@@ -316,7 +321,7 @@ class Crypt {
 		// Split into enc data and catfile
 		$catfile = self::splitIv($noPadding);
 
-		if ($plainContent = self::decrypt($catfile['encrypted'], $catfile['iv'], $passphrase)) {
+		if ($plainContent = self::decrypt($catfile['encrypted'], $catfile['iv'], $passphrase, $cipher)) {
 
 			return $plainContent;
 
